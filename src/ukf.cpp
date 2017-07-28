@@ -270,6 +270,77 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the lidar NIS.
   */
+  /***** predict Lidar sigma points *****/
+
+  // set meas dimension
+  int n_z = 2;
+
+  // create Matrix for sigma points in meas space
+  MatrixXd Zsig = MatrixXd(n_z, 2*n_aug_ + 1);
+
+  // transform sigma points into measurement space
+  for (int i = 0; i < 2*n_aug_ + 1; i++)
+  {
+    //pull values for readibility 
+    double p_x = Xsig_preg_(0,i);
+    double p_y = Xsig_pred_(1,i);
+
+    // measurement model px & py
+    Zsig(0,i) = p_x;
+    Zsig(1,i) = p_y;
+  }
+
+  // create covariance Matrix S
+  MatrixXd S = MatrixXd(n_z,n_z);
+  S.fill(0.0);
+  for (int i = 0; i < 2*n_aug_ + 1; i++)
+  {
+    Vector z_diff = Zsig.col(i) - z_pred;
+    S += weights_(i) * z_diff * z_diff.transpose();
+  }
+
+  // measurement covariance Matrix add noise
+  MatrixXd R = MatrixXd(n_z,n_z);
+  R << std_laspx*std_laspx_,0,0,std_laspy*std_laspy_;
+  S += R;
+
+  /****** Measurement Update *****/
+
+  // create cross correlation Matrix Tc
+  MatrixXd Tc = MatrixXd(n_x_,n_z);
+
+  Tc.fill(0.0);
+  for (int i = 0; i < 2*n_aug + 1; i++)
+  {
+    // calc residuals
+    VectorXd z_diff = Zsig.col(i) - z_diff;
+
+    // calc state difference
+    VectorXd x_diff = Xsig.col(i) - x_;
+
+    Tc += weights_(i) * z_diff.transpose(); * x_diff;
+  }
+
+  // calc Kalman gain K
+  MatrixXd K = Tc * S.inverse();
+
+  float p_x = meas_package.raw_measurements_(0);
+  float p_y = meas_package.raw_measurements_(1);
+
+  // fill vector with meas values
+  VectorXd z = VectorXd(n_z);
+  z << p_x, p_y;
+
+  // calc residuals
+  VectorXd z_diff = z - z_pred;
+
+  // update state and covariance Matrix
+  x_ += K * z_diff;
+  P_ -= K*S*K.transpose();
+
+  // NIS
+  double NIS_lidar = z_diff.transpose() * S.inverse() * z_diff;
+
 }
 
 /**
