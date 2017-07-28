@@ -65,6 +65,8 @@ UKF::UKF() {
   Xsig_pred_ = MatrixXd(n_x_, 2*n_aug_ + 1);
  
   weights_ = VectorXd(2*n_aug_ + 1);
+
+  is_initialized_ = false;
   
 }
 
@@ -76,12 +78,62 @@ UKF::~UKF() {}
  */
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   /**
-  TODO:
+  DONE:
 
   Complete this function! Make sure you switch between lidar and radar
   measurements.
   */
-}
+  // if both sensors active 
+  if ((meas_package.sensor_type_ == MeasurementPackage:: RADAR && use_radar_) ||
+     (meas_package.sensor_type_ == MeasurementPackage:: LASER && use_laser_))
+  {
+    if (!is_initialized_)
+    {
+        std::cout << "UKF: " << std::endl;
+    
+      if (meas_package.sensor_type_ == MeasurementPackage:: LASER && use_laser_)
+      {
+        // initialize state
+        x_(0) = meas_package.raw_measurements_(0);
+        x_(1) = meas_package.raw_measurements_(1);
+      }
+      else if (meas_package.sensor_type_ == MeasurementPackage:: RADAR && use_radar_)  
+      {
+        // greeks for polar conversion
+        float rho = meas_package.raw_measurements_(0);
+        float theta = meas_package.raw_measurements_(1);
+
+        // initialize state
+        x_(0) = rho * cos(theta);
+        x_(1) = rho * sin(theta);
+      }
+
+      time_us_ = meas_package.timestamp_;
+
+      // initialization complete
+      is_initialized_ = true; 
+      
+      return;
+
+    }//if initialized
+    
+    /***** Prediction ******/
+    
+    // calc delta t (units of seconds)
+    float dt = (meas_package.timestamp_ - time_us_) / 1000000.0;
+    time_us_ = meas_package.timestamp_;
+    Prediction(dt);
+
+    /***** Update *****/
+    
+    if (meas_package.sensor_type_ == MeasurementPackage:: LASER && use_laser_)
+      UpdateLidar(meas_package);
+    else if (meas_package.sensor_type_ == MeasurementPackage:: RADAR && use_radar_) 
+      UpdateRadar(meas_package); 
+      
+  } // if both sensors active
+  
+} //ProcessMeasurement
 
 /**
  * Predicts sigma points, the state, and the state covariance matrix.
