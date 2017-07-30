@@ -282,7 +282,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   for (int i = 0; i < 2*n_aug_ + 1; i++)
   {
     //pull values for readibility 
-    double p_x = Xsig_preg_(0,i);
+    double p_x = Xsig_pred_(0,i);
     double p_y = Xsig_pred_(1,i);
 
     // measurement model px & py
@@ -290,18 +290,27 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
     Zsig(1,i) = p_y;
   }
 
+  // predicted measurement
+  VectorXd z_pred = VectorXd(n_z);
+  z_pred.fill(0.0);
+  for (int i=0; i < 2*n_aug_ + 1; i++) 
+  {
+      z_pred = z_pred + weights_(i) * Zsig.col(i);
+  }
+
+
   // create covariance Matrix S
   MatrixXd S = MatrixXd(n_z,n_z);
   S.fill(0.0);
   for (int i = 0; i < 2*n_aug_ + 1; i++)
   {
-    Vector z_diff = Zsig.col(i) - z_pred;
+    VectorXd z_diff = Zsig.col(i) - z_pred;
     S += weights_(i) * z_diff * z_diff.transpose();
   }
 
   // measurement covariance Matrix add noise
   MatrixXd R = MatrixXd(n_z,n_z);
-  R << std_laspx*std_laspx_,0,0,std_laspy*std_laspy_;
+  R << std_laspx_*std_laspx_,0,0,std_laspy_*std_laspy_;
   S += R;
 
   /****** Measurement Update *****/
@@ -310,15 +319,15 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   MatrixXd Tc = MatrixXd(n_x_,n_z);
 
   Tc.fill(0.0);
-  for (int i = 0; i < 2*n_aug + 1; i++)
+  for (int i = 0; i < 2*n_aug_ + 1; i++)
   {
     // calc residuals
     VectorXd z_diff = Zsig.col(i) - z_diff;
 
     // calc state difference
-    VectorXd x_diff = Xsig.col(i) - x_;
+    VectorXd x_diff = Xsig_pred_.col(i) - x_;
 
-    Tc += weights_(i) * z_diff.transpose(); * x_diff;
+    Tc += weights_(i) * z_diff.transpose() * x_diff;
   }
 
   // calc Kalman gain K
@@ -349,7 +358,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
  */
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
   /**
-  TODO:
+  DONE:
 
   Complete this function! Use radar data to update the belief about the object's
   position. Modify the state vector, x_, and covariance, P_.
@@ -367,7 +376,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   for (int i = 0; i < 2*n_aug_ + 1; i++)
   {
     //pull values for readibility 
-    double p_x = Xsig_preg_(0,i);
+    double p_x = Xsig_pred_(0,i);
     double p_y = Xsig_pred_(1,i);
     double v = Xsig_pred_(2,i);
     double yaw = Xsig_pred_(3,i);
@@ -375,15 +384,23 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     double v_y = v * sin(yaw);
 
     // measurement model px & py
-    Zsig(0,i) = sqrt(p_x*p_x + p_y*p_y);
-    Zsig(1,i) = atan2(p_y,p_x);
-    Zsig(2,i) = (p_x*v_x + p_y*v_y) / sqrt(p_x*p_x + 
+    Zsig(0,i) = sqrt(p_x*p_x + p_y*p_y); //rho
+    Zsig(1,i) = atan2(p_y,p_x); //theta
+    Zsig(2,i) = (p_x*v_x + p_y*v_y) / sqrt(p_x*p_x + p_y*p_y); //rho_dot
   }
 
   // predicted measurement
   VectorXd z_pred = VectorXd(n_z);
   z_pred.fill(0.0);
-  for (int i=0; i < 2*n_aug_ + 1; i++);
+  for (int i=0; i < 2*n_aug_ + 1; i++)
+  { 
+    z_pred += weights_(i) * Zsig.col(i);
+  }
+  
+  // measurement covariance Matrix S
+  MatrixXd S = MatrixXd(n_z,n_z);
+  S.fill(0.0);
+  for (int i=0; i < 2*n_aug_ + 1; i++)
   {
     // calc residuals
     VectorXd z_diff = Zsig.col(i) - z_pred;
@@ -399,7 +416,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   MatrixXd R  = MatrixXd(n_z,n_z);
   R << std_radr_*std_radr_,0,0,0,
        std_radphi_*std_radphi_,0,0,0,
-       std_radrs_*std_radrd_;
+       std_radrd_*std_radrd_;
 
   S += R;
 
