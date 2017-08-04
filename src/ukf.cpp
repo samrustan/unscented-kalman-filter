@@ -326,7 +326,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   for (int i = 0; i < n_sig_; i++)
   {
     // calc residuals
-    VectorXd z_diff = Zsig.col(i) - z_diff;
+    VectorXd z_diff = Zsig.col(i) - z_pred;
 
     // calc state difference
     VectorXd x_diff = Xsig_pred_.col(i) - x_;
