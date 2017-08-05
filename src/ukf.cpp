@@ -272,23 +272,11 @@ void UKF::UpdateLidar(MeasurementPackage meas_package)
   */
   /***** predict Lidar sigma points *****/
 
-  //set measurement dimension
+  // set measurement dimension
   int n_z = 2;
 
-  //create matrix for sigma points in measurement space
-  MatrixXd Zsig = MatrixXd(n_z, n_sig_);
-
-  //transform sigma points into measurement space
-  for (int i = 0; i < n_sig_; i++) 
-  {  
-    // pull values for better readibility
-    double p_x = Xsig_pred_(0,i);
-    double p_y = Xsig_pred_(1,i);
-
-    // measurement model px & py
-    Zsig(0,i) = p_x;    
-    Zsig(1,i) = p_y;    
-  }
+  // create matrix for sigma points in measurement space
+  MatrixXd Zsig = Xsig_pred_.block(0,0,n_z,n_sig_);
 
   // predicted measurement
   VectorXd z_pred = VectorXd(n_z);
@@ -373,7 +361,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package)
   // transform sigma points into measurement space
   for (int i = 0; i < n_sig_; i++) 
   {  
-    // pull values for better readibility
+    // pull values for readibility in calculation
     double p_x = Xsig_pred_(0,i);
     double p_y = Xsig_pred_(1,i);
     double v  = Xsig_pred_(2,i);
@@ -387,7 +375,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package)
     Zsig(2,i) = (p_x*v_x + p_y*v_y ) / sqrt(p_x*p_x + p_y*p_y);  //range_rate
   }
 
-  // mean predicted measurement
+  // predicted measurement
   VectorXd z_pred = VectorXd(n_z);
   z_pred.fill(0.0);
   for (int i=0; i < n_sig_; i++) 
@@ -395,7 +383,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package)
       z_pred = z_pred + weights_(i) * Zsig.col(i);
   }
 
-  // measurement covariance matrix S
+  // create covariance matrix S
   MatrixXd S = MatrixXd(n_z,n_z);
   S.fill(0.0);
   for (int i = 0; i < n_sig_; i++) 
