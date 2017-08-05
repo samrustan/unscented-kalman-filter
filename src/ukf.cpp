@@ -16,12 +16,24 @@ UKF::UKF() {
 
   // if this is false, radar measurements will be ignored (except during init)
   use_radar_ = true;
+  
+  n_x_ = 5;
+  n_aug_ = 7;
+  n_sig_ = 2*n_aug_ + 1;
 
   // initial state vector
-  x_ = VectorXd(5);
+  x_ = VectorXd(n_x_);
+
+  x_ << 1, 1, 1, 1, 0.1;
 
   // initial covariance matrix
-  P_ = MatrixXd(5, 5);
+  P_ = MatrixXd(n_x_, n_x_);
+
+  P_ << 0.15,    0,    0,    0,    0, 
+         0, 0.15,    0,    0,    0, 
+         0,    0,    1,    0,    0, 
+         0,    0,    0,    1,    0,
+         0,    0,    0,    0,    1;
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
   std_a_ = 2.0;
@@ -53,15 +65,10 @@ UKF::UKF() {
     --std_a_ & std_yawdd_ were set to 30, yes wildly
     --these params tuned manually for results 
   */
-  n_x_ = 5;
-  n_aug_ = 7;
-  n_sig_ = 2*n_aug_ + 1;
+
+
   lambda_ = 3 - n_aug_;
-  P_ << 0.15,    0,    0,    0,    0, 
-           0, 0.15,    0,    0,    0, 
-           0,    0,    1,    0,    0, 
-           0,    0,    0,    1,    0,
-           0,    0,    0,    0,    1;
+
 
   Xsig_pred_ = MatrixXd(n_x_, n_sig_);
  
@@ -128,9 +135,13 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     /***** Update *****/
     
     if (meas_package.sensor_type_ == MeasurementPackage:: LASER && use_laser_)
+    {
       UpdateLidar(meas_package);
+    }
     else if (meas_package.sensor_type_ == MeasurementPackage:: RADAR && use_radar_) 
+    {
       UpdateRadar(meas_package); 
+    }  
       
   } // if both sensors active
   
@@ -331,7 +342,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
     // calc state difference
     VectorXd x_diff = Xsig_pred_.col(i) - x_;
 
-    Tc += weights_(i) * z_diff.transpose() * x_diff;
+    Tc += weights_(i) * x_diff * z_diff.transpose();
   }
 
   // calc Kalman gain K
